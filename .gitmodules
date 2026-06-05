@@ -1,0 +1,3 @@
+[submodule "slimevolleygym"]
+	path = slimevolleygym
+	url = https://github.com/hardmaru/slimevolleygym.git

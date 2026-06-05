@@ -109,10 +109,33 @@ def forward(genome, observation):
     )
 
 
-def outputs_to_action(outputs, threshold=0.5):
+def outputs_to_action(
+    outputs,
+    threshold=0.5,
+    action_mode="exclusive",
+    horizontal_margin=0.05,
+):
     """
     Map continuous network outputs to binary button.
     """
 
     outputs = np.asarray(outputs)
-    return (outputs >= threshold).astype(np.int8)
+
+    if action_mode == "independent":
+        return (outputs >= threshold).astype(np.int8)
+
+    if action_mode == "exclusive":
+        action = np.zeros(3, dtype=np.int8)
+        horizontal_difference = outputs[0] - outputs[1]
+
+        # Forward/backward are mutually exclusive. The margin avoids jitter
+        # when both movement outputs are nearly tied.
+        if outputs[0] >= threshold and horizontal_difference > horizontal_margin:
+            action[0] = 1
+        elif outputs[1] >= threshold and horizontal_difference < -horizontal_margin:
+            action[1] = 1
+
+        action[2] = 1 if outputs[2] >= threshold else 0
+        return action
+
+    raise ValueError(f"Unknown action_mode: {action_mode}")

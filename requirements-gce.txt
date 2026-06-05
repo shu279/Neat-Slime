@@ -1,0 +1,4 @@
+gym==0.20.0
+numpy
+opencv-python-headless
+pyglet==1.5.11

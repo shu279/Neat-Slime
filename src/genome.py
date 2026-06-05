@@ -313,7 +313,15 @@ def mutate_toggle_connection(genome):
         return False
 
     connection = genome["connections"][np.random.randint(len(genome["connections"]))]
-    connection["enabled"] = not connection["enabled"]
+    if connection["enabled"]:
+        connection["enabled"] = False
+        return True
+
+    # Only re-enable the connection if doing so keeps the graph feed-forward.
+    if creates_cycle(genome, connection["from"], connection["to"]):
+        return False
+
+    connection["enabled"] = True
     return True
 
 

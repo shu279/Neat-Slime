@@ -33,7 +33,7 @@ def _restore_node_ids(genome):
     return genome_copy
 
 
-def save_genome(path, genome, fitness=None):
+def save_genome(path, genome, fitness=None, metadata=None):
     """
     Save one genome and optional fitness metadata as JSON.
     """
@@ -43,6 +43,7 @@ def save_genome(path, genome, fitness=None):
 
     payload = {
         "fitness": None if fitness is None else float(fitness),
+        "metadata": {} if metadata is None else metadata,
         "genome": _stringify_node_ids(genome),
     }
 
@@ -59,3 +60,16 @@ def load_genome(path):
         payload = json.load(file)
 
     return _restore_node_ids(payload["genome"]), payload.get("fitness")
+
+
+def load_genome_payload(path):
+    """
+    Load the full saved JSON payload, including metadata.
+    """
+
+    with Path(path).open("r", encoding="utf-8") as file:
+        payload = json.load(file)
+
+    payload["genome"] = _restore_node_ids(payload["genome"])
+    payload.setdefault("metadata", {})
+    return payload
