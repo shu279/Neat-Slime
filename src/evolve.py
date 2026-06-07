@@ -35,6 +35,9 @@ def _evaluate_genome_worker(args):
         net_camping_penalty,
         ball_tracking_penalty,
         action_shaping_scale,
+        ball_contact_reward,
+        ball_approach_reward,
+        missed_ball_penalty,
     ) = args
     try:
         return evaluate_fitness(
@@ -48,6 +51,9 @@ def _evaluate_genome_worker(args):
             net_camping_penalty=net_camping_penalty,
             ball_tracking_penalty=ball_tracking_penalty,
             action_shaping_scale=action_shaping_scale,
+            ball_contact_reward=ball_contact_reward,
+            ball_approach_reward=ball_approach_reward,
+            missed_ball_penalty=missed_ball_penalty,
         )
     except ValueError as error:
         if "cyclic" not in str(error) and "recurrent" not in str(error):
@@ -391,6 +397,9 @@ def evaluate_population(
     net_camping_penalty,
     ball_tracking_penalty,
     action_shaping_scale,
+    ball_contact_reward,
+    ball_approach_reward,
+    missed_ball_penalty,
     num_workers=1,
 ):
     """
@@ -409,6 +418,9 @@ def evaluate_population(
             net_camping_penalty,
             ball_tracking_penalty,
             action_shaping_scale,
+            ball_contact_reward,
+            ball_approach_reward,
+            missed_ball_penalty,
         )
         for genome in population
     ]
@@ -435,13 +447,13 @@ def evaluate_population(
 
 def evolve(
     population_size=300,
-    generations=500,
+    generations=300,
     target_fitness=None,
     episodes_per_genome=8,
     elite_count=22,
     species_count=10,
     best_genome_path="saved/best_genome.json",
-    survival_bonus_per_step=0.0001,
+    survival_bonus_per_step=0.00002,
     action_mode="exclusive",
     horizontal_margin=0.0,
     action_repeat=1,
@@ -449,6 +461,9 @@ def evolve(
     net_camping_penalty=0.004,
     ball_tracking_penalty=0.001,
     action_shaping_scale=0.001,
+    ball_contact_reward=0.02,
+    ball_approach_reward=0.005,
+    missed_ball_penalty=0.1,
     raw_eval_interval=5,
     raw_eval_episodes=10,
     save_best_by_raw_score=False,
@@ -497,6 +512,9 @@ def evolve(
         net_camping_penalty:    Penalty for staying near net when ball is behind.
         ball_tracking_penalty:  Penalty for being horizontally far from own-side ball.
         action_shaping_scale:   Reward/penalty for directional action choices.
+        ball_contact_reward:    Reward for likely touching/hitting the ball.
+        ball_approach_reward:   Reward for moving closer to own-side ball.
+        missed_ball_penalty:    Penalty when opponent scores from behind agent.
         raw_eval_interval:      Generations between true baseline score checks. None disables.
         raw_eval_episodes:      Episodes used for each true baseline score check.
         save_best_by_raw_score: If True, save by raw score instead of training fitness.
@@ -531,6 +549,9 @@ def evolve(
             net_camping_penalty=net_camping_penalty,
             ball_tracking_penalty=ball_tracking_penalty,
             action_shaping_scale=action_shaping_scale,
+            ball_contact_reward=ball_contact_reward,
+            ball_approach_reward=ball_approach_reward,
+            missed_ball_penalty=missed_ball_penalty,
             num_workers=num_workers,
         )
 
@@ -574,6 +595,10 @@ def evolve(
                             "raw_eval_episodes": raw_save_episodes,
                             "training_fitness": best_fitness,
                             "generation": generation,
+                            "action_mode": action_mode,
+                            "horizontal_margin": horizontal_margin,
+                            "action_repeat": action_repeat,
+                            "opponent_mode": "baseline",
                         },
                     )
             elif best_genome_path is not None:
@@ -584,6 +609,10 @@ def evolve(
                     metadata={
                         "score_type": "training_fitness",
                         "generation": generation,
+                        "action_mode": action_mode,
+                        "horizontal_margin": horizontal_margin,
+                        "action_repeat": action_repeat,
+                        "opponent_mode": "baseline",
                     },
                 )
         else:
@@ -611,6 +640,10 @@ def evolve(
                     opponent_mode="baseline",
                 )
             log_message += (
+                f", raw_avg={raw_stats['average_reward']:.2f}"
+                f", w/d/l={raw_stats['wins']}/{raw_stats['draws']}/"
+                f"{raw_stats['losses']}"
+                f", avg_len={raw_stats['average_episode_length']:.0f}"
                 f", raw_points={raw_stats['points_for']}/"
                 f"{raw_stats['points_for'] + raw_stats['points_against']}"
             )

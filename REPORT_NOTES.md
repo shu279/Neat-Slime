@@ -73,6 +73,24 @@ example, fitness values above the normal SlimeVolley score range (`-5` to `+5`)
 indicate that survival bonus is strongly influencing selection. This can create
 agents that stall or survive until the time limit instead of learning to win.
 
+To reduce this risk, later experiments added more task-specific shaping based on
+ball interaction rather than relying only on survival time.
+
+## Ball-Interaction Shaping
+
+Additional training-only shaping was added to encourage active volleyball
+behavior:
+
+- reward likely ball contact when the ball is close to the agent and its velocity changes
+- reward moving closer to the ball when the ball is on the agent's side
+- penalize conceding a point when the ball was behind the agent
+
+This uses the state observation rather than pixels. In SlimeVolley, the
+observation contains agent position/velocity and ball position/velocity from the
+agent's perspective. This shaping is still heuristic because the environment
+does not directly expose a "ball touched" event, so contact is inferred from
+ball distance and velocity change.
+
 Survival bonus also increases training wall-clock time. As agents learn to
 survive longer, each episode contains more environment steps, so each generation
 takes longer to evaluate. This makes a high survival bonus costly in two ways:
@@ -193,10 +211,11 @@ Training fitness may include shaping terms, so separate raw evaluation metrics
 were added:
 
 - `raw_points=a/b`: the agent scored `a` points out of `b` total point events
+- `average raw reward`: average true point difference per episode
 - `wins`: number of full episodes won
 - `draws`: number of full episodes with zero net score
 - `losses`: number of full episodes lost
-- `average raw reward`: average true SlimeVolley reward
+- `average episode length`: average number of environment steps per episode
 
 `raw_points` is useful early in training because full match wins are rare. For
 example:
@@ -213,6 +232,15 @@ raw_points=8/23
 
 means the agent scored 8 points while the opponent scored 15 points. This is a
 better point ratio, but it does not necessarily mean the agent won matches.
+
+Average episode length helps distinguish two different cases:
+
+- short episodes with many opponent points mean the agent loses quickly
+- long episodes with few points may mean the agent survives or stalls until the
+  time limit
+
+Therefore, raw points should be interpreted together with wins/draws/losses,
+average raw reward, and average episode length.
 
 ## Time-Limit Interpretation
 
