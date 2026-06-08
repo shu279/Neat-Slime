@@ -38,6 +38,10 @@ def _evaluate_genome_worker(args):
         ball_contact_reward,
         ball_approach_reward,
         missed_ball_penalty,
+        cross_net_reward,
+        attack_velocity_reward,
+        own_side_stall_penalty,
+        own_side_stall_grace_steps,
     ) = args
     try:
         return evaluate_fitness(
@@ -54,6 +58,10 @@ def _evaluate_genome_worker(args):
             ball_contact_reward=ball_contact_reward,
             ball_approach_reward=ball_approach_reward,
             missed_ball_penalty=missed_ball_penalty,
+            cross_net_reward=cross_net_reward,
+            attack_velocity_reward=attack_velocity_reward,
+            own_side_stall_penalty=own_side_stall_penalty,
+            own_side_stall_grace_steps=own_side_stall_grace_steps,
         )
     except ValueError as error:
         if "cyclic" not in str(error) and "recurrent" not in str(error):
@@ -253,6 +261,7 @@ def speciate(scored_population, species_count=5, iterations=5):
     )
     medoids = [scored_population[index]["genome"] for index in medoid_indices]
 
+    # distance = matching genes compare weights / missing genes count as structural distance.
     for _ in range(iterations):
         species = assign_to_medoids(scored_population, medoids)
         update_medoids(species)
@@ -400,6 +409,10 @@ def evaluate_population(
     ball_contact_reward,
     ball_approach_reward,
     missed_ball_penalty,
+    cross_net_reward,
+    attack_velocity_reward,
+    own_side_stall_penalty,
+    own_side_stall_grace_steps,
     num_workers=1,
 ):
     """
@@ -421,6 +434,10 @@ def evaluate_population(
             ball_contact_reward,
             ball_approach_reward,
             missed_ball_penalty,
+            cross_net_reward,
+            attack_velocity_reward,
+            own_side_stall_penalty,
+            own_side_stall_grace_steps,
         )
         for genome in population
     ]
@@ -453,28 +470,35 @@ def evolve(
     elite_count=22,
     species_count=10,
     best_genome_path="saved/best_genome.json",
-    survival_bonus_per_step=0.00002,
     action_mode="exclusive",
-    horizontal_margin=0.0,
     action_repeat=1,
     opponent_mode="baseline",
-    net_camping_penalty=0.004,
-    ball_tracking_penalty=0.001,
-    action_shaping_scale=0.001,
-    ball_contact_reward=0.02,
-    ball_approach_reward=0.005,
-    missed_ball_penalty=0.1,
-    raw_eval_interval=5,
-    raw_eval_episodes=10,
-    save_best_by_raw_score=False,
-    raw_save_episodes=20,
     num_workers=26,
-    stagnation_generations=50,
-    stagnation_reset_fraction=0.2,
     weight_mutation_rate=0.8,
     add_node_rate=0.1,
     add_connection_rate=0.1,
     toggle_connection_rate=0.02,
+
+    raw_eval_interval=5,
+    raw_eval_episodes=10,
+    save_best_by_raw_score=False,
+    raw_save_episodes=20,
+    stagnation_generations=50,
+    stagnation_reset_fraction=0.2,
+
+    net_camping_penalty=0.004,
+    ball_tracking_penalty=0.001,
+    cross_net_reward=0.15,
+    attack_velocity_reward=0.01,
+    own_side_stall_penalty=0.0003,
+    own_side_stall_grace_steps=120,
+
+    survival_bonus_per_step=0.0, #Used to be -0.0004
+    horizontal_margin=0.0,
+    action_shaping_scale=0.0,  #Used to be 0.001
+    ball_contact_reward=0.0, #Used to be 0.02
+    ball_approach_reward=0.0, #Used to be 0.05
+    missed_ball_penalty=0.00 #Reduced to avoid head juggling
 ):
     """
     Run evolution and return the best genome and its selected score.
@@ -515,6 +539,10 @@ def evolve(
         ball_contact_reward:    Reward for likely touching/hitting the ball.
         ball_approach_reward:   Reward for moving closer to own-side ball.
         missed_ball_penalty:    Penalty when opponent scores from behind agent.
+        cross_net_reward:       Reward for sending the ball across the net.
+        attack_velocity_reward: Reward for hitting the ball toward opponent side.
+        own_side_stall_penalty: Per-step penalty after ball stays on own side too long.
+        own_side_stall_grace_steps: Own-side ball steps allowed before stall penalty.
         raw_eval_interval:      Generations between true baseline score checks. None disables.
         raw_eval_episodes:      Episodes used for each true baseline score check.
         save_best_by_raw_score: If True, save by raw score instead of training fitness.
@@ -552,6 +580,10 @@ def evolve(
             ball_contact_reward=ball_contact_reward,
             ball_approach_reward=ball_approach_reward,
             missed_ball_penalty=missed_ball_penalty,
+            cross_net_reward=cross_net_reward,
+            attack_velocity_reward=attack_velocity_reward,
+            own_side_stall_penalty=own_side_stall_penalty,
+            own_side_stall_grace_steps=own_side_stall_grace_steps,
             num_workers=num_workers,
         )
 
@@ -599,6 +631,10 @@ def evolve(
                             "horizontal_margin": horizontal_margin,
                             "action_repeat": action_repeat,
                             "opponent_mode": "baseline",
+                            "cross_net_reward": cross_net_reward,
+                            "attack_velocity_reward": attack_velocity_reward,
+                            "own_side_stall_penalty": own_side_stall_penalty,
+                            "own_side_stall_grace_steps": own_side_stall_grace_steps,
                         },
                     )
             elif best_genome_path is not None:
@@ -613,6 +649,10 @@ def evolve(
                         "horizontal_margin": horizontal_margin,
                         "action_repeat": action_repeat,
                         "opponent_mode": "baseline",
+                        "cross_net_reward": cross_net_reward,
+                        "attack_velocity_reward": attack_velocity_reward,
+                        "own_side_stall_penalty": own_side_stall_penalty,
+                        "own_side_stall_grace_steps": own_side_stall_grace_steps,
                     },
                 )
         else:

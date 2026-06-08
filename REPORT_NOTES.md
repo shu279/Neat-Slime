@@ -302,3 +302,16 @@ The current implementation is still a simplified NEAT system:
 The most important future improvement would be better fitness shaping or a
 curriculum that rewards useful ball interaction without over-rewarding passive
 survival.
+
+## Offensive Ball Movement Shaping
+
+The latest shaping change avoids direct rewards for simple ball contact or
+moving toward the ball, because those rewards encouraged the agent to keep the
+ball on its head. Training now includes targeted offensive signals:
+
+- reward when the ball crosses from the agent's side to the opponent's side
+- small reward when a likely hit sends the ball leftward toward the opponent
+- small penalty after the ball stays on the agent's side for too many steps
+
+The goal is to make long survival useful only when it also creates pressure on
+the opponent side.

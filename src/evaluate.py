@@ -43,6 +43,10 @@ def evaluate_fitness(
     ball_contact_reward=0.0,
     ball_approach_reward=0.0,
     missed_ball_penalty=0.0,
+    cross_net_reward=0.0,
+    attack_velocity_reward=0.0,
+    own_side_stall_penalty=0.0,
+    own_side_stall_grace_steps=120,
 ):
     """
     Run the genome in SlimeVolley and return the average total reward.
@@ -64,6 +68,10 @@ def evaluate_fitness(
         ball_contact_reward: Reward for likely touching/hitting the ball.
         ball_approach_reward: Reward for moving closer to ball on the agent's side.
         missed_ball_penalty: Penalty when opponent scores and ball was behind agent.
+        cross_net_reward: Reward when the ball moves from own side to opponent side.
+        attack_velocity_reward: Reward for hitting the ball toward opponent side.
+        own_side_stall_penalty: Per-step penalty for keeping ball on own side too long.
+        own_side_stall_grace_steps: Own-side ball steps allowed before stall penalty.
     """
 
     env = gym.make("SlimeVolley-v0")
@@ -85,6 +93,10 @@ def evaluate_fitness(
                 ball_contact_reward=ball_contact_reward,
                 ball_approach_reward=ball_approach_reward,
                 missed_ball_penalty=missed_ball_penalty,
+                cross_net_reward=cross_net_reward,
+                attack_velocity_reward=attack_velocity_reward,
+                own_side_stall_penalty=own_side_stall_penalty,
+                own_side_stall_grace_steps=own_side_stall_grace_steps,
             )
             for _ in range(episodes)
         ]
@@ -111,6 +123,10 @@ def run_episode(
     ball_contact_reward=0.0,
     ball_approach_reward=0.0,
     missed_ball_penalty=0.0,
+    cross_net_reward=0.0,
+    attack_velocity_reward=0.0,
+    own_side_stall_penalty=0.0,
+    own_side_stall_grace_steps=120,
     return_point_stats=False,
 ):
     """
@@ -129,6 +145,7 @@ def run_episode(
         episode_opponent_mode = "baseline" if np.random.random() < 0.5 else "random"
     repeated_action = np.zeros(3, dtype=np.int8)
     repeat_countdown = 0
+    own_side_ball_steps = 0
 
     while not done:
         previous_obs = obs
@@ -165,6 +182,11 @@ def run_episode(
         elif reward < 0:
             points_against += 1
 
+        if obs[4] > 0:
+            own_side_ball_steps += 1
+        else:
+            own_side_ball_steps = 0
+
         shaped_reward = reward + survival_bonus_per_step
         shaped_reward += get_position_shaping_reward(
             obs,
@@ -180,6 +202,11 @@ def run_episode(
             ball_contact_reward=ball_contact_reward,
             ball_approach_reward=ball_approach_reward,
             missed_ball_penalty=missed_ball_penalty,
+            cross_net_reward=cross_net_reward,
+            attack_velocity_reward=attack_velocity_reward,
+            own_side_stall_penalty=own_side_stall_penalty,
+            own_side_stall_grace_steps=own_side_stall_grace_steps,
+            own_side_ball_steps=own_side_ball_steps,
         )
         episode_reward += shaped_reward
 
@@ -246,8 +273,14 @@ def get_ball_interaction_shaping_reward(
     ball_contact_reward=0.0,
     ball_approach_reward=0.0,
     missed_ball_penalty=0.0,
+    cross_net_reward=0.0,
+    attack_velocity_reward=0.0,
+    own_side_stall_penalty=0.0,
+    own_side_stall_grace_steps=120,
+    own_side_ball_steps=0,
     contact_distance=0.25,
     velocity_change_threshold=0.05,
+    attack_velocity_threshold=0.04,
     ball_behind_margin=0.12,
 ):
     """
@@ -280,6 +313,20 @@ def get_ball_interaction_shaping_reward(
         )
         if ball_distance <= contact_distance and velocity_change >= velocity_change_threshold:
             shaping_reward += ball_contact_reward
+    else:
+        ball_distance = np.hypot(ball_x - agent_x, ball_y - agent_y)
+        velocity_change = np.hypot(
+            ball_vx - previous_ball_vx,
+            ball_vy - previous_ball_vy,
+        )
+
+    if cross_net_reward > 0 and previous_ball_x > 0 and ball_x <= 0:
+        if previous_ball_vx < 0 or ball_vx < 0:
+            shaping_reward += cross_net_reward
+
+    if attack_velocity_reward > 0 and ball_vx < -attack_velocity_threshold:
+        if ball_distance <= contact_distance and velocity_change >= velocity_change_threshold:
+            shaping_reward += attack_velocity_reward
 
     if ball_approach_reward > 0 and previous_ball_x > 0 and ball_x > 0:
         previous_distance = abs(previous_agent_x - previous_ball_x)
@@ -287,6 +334,9 @@ def get_ball_interaction_shaping_reward(
         distance_improvement = previous_distance - current_distance
         if distance_improvement > 0:
             shaping_reward += ball_approach_reward * min(distance_improvement, 0.1)
+
+    if own_side_stall_penalty > 0 and own_side_ball_steps > own_side_stall_grace_steps:
+        shaping_reward -= own_side_stall_penalty
 
     ball_was_behind = previous_ball_x > previous_agent_x + ball_behind_margin
     if missed_ball_penalty > 0 and raw_reward < 0 and ball_was_behind:

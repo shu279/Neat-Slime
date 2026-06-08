@@ -53,6 +53,11 @@ GENERATIONS=50 NUM_WORKERS=4 bash scripts/gce_roundtrip.sh
 
 Omit `GENERATIONS=50` for the full default 500-generation run.
 
+The roundtrip script starts training with `nohup` on the VM and then polls for
+completion. If the local SSH polling connection drops, training should continue
+on the VM. Re-run the script only after checking that no training process is
+already active.
+
 ## Keep Training Running After Disconnect
 
 ```bash
