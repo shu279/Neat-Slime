@@ -47,6 +47,7 @@ def evaluate_fitness(
     attack_velocity_reward=0.0,
     own_side_stall_penalty=0.0,
     own_side_stall_grace_steps=120,
+    head_juggle_penalty=0.0,
 ):
     """
     Run the genome in SlimeVolley and return the average total reward.
@@ -72,6 +73,7 @@ def evaluate_fitness(
         attack_velocity_reward: Reward for hitting the ball toward opponent side.
         own_side_stall_penalty: Per-step penalty for keeping ball on own side too long.
         own_side_stall_grace_steps: Own-side ball steps allowed before stall penalty.
+        head_juggle_penalty: Penalty when the ball stays close above player without attack velocity.
     """
 
     env = gym.make("SlimeVolley-v0")
@@ -97,6 +99,7 @@ def evaluate_fitness(
                 attack_velocity_reward=attack_velocity_reward,
                 own_side_stall_penalty=own_side_stall_penalty,
                 own_side_stall_grace_steps=own_side_stall_grace_steps,
+                head_juggle_penalty=head_juggle_penalty,
             )
             for _ in range(episodes)
         ]
@@ -127,6 +130,7 @@ def run_episode(
     attack_velocity_reward=0.0,
     own_side_stall_penalty=0.0,
     own_side_stall_grace_steps=120,
+    head_juggle_penalty=0.0,
     return_point_stats=False,
 ):
     """
@@ -207,6 +211,7 @@ def run_episode(
             own_side_stall_penalty=own_side_stall_penalty,
             own_side_stall_grace_steps=own_side_stall_grace_steps,
             own_side_ball_steps=own_side_ball_steps,
+            head_juggle_penalty=head_juggle_penalty,
         )
         episode_reward += shaped_reward
 
@@ -278,9 +283,11 @@ def get_ball_interaction_shaping_reward(
     own_side_stall_penalty=0.0,
     own_side_stall_grace_steps=120,
     own_side_ball_steps=0,
+    head_juggle_penalty=0.0,
     contact_distance=0.25,
     velocity_change_threshold=0.05,
     attack_velocity_threshold=0.04,
+    head_juggle_x_distance=0.18,
     ball_behind_margin=0.12,
 ):
     """
@@ -327,6 +334,13 @@ def get_ball_interaction_shaping_reward(
     if attack_velocity_reward > 0 and ball_vx < -attack_velocity_threshold:
         if ball_distance <= contact_distance and velocity_change >= velocity_change_threshold:
             shaping_reward += attack_velocity_reward
+
+    if head_juggle_penalty > 0 and ball_x > 0:
+        ball_is_above_player = ball_y >= agent_y
+        ball_is_centered_on_player = abs(ball_x - agent_x) <= head_juggle_x_distance
+        ball_is_not_attacking = ball_vx > -attack_velocity_threshold
+        if ball_is_above_player and ball_is_centered_on_player and ball_is_not_attacking:
+            shaping_reward -= head_juggle_penalty
 
     if ball_approach_reward > 0 and previous_ball_x > 0 and ball_x > 0:
         previous_distance = abs(previous_agent_x - previous_ball_x)

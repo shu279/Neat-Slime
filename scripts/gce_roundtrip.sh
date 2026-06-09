@@ -59,13 +59,13 @@ while true; do
     gcloud compute ssh "${instance}" \
       --project "${project}" \
       --zone "${zone}" \
-      --command "cd ${remote_dir} && if test -f ${remote_status_file}; then echo STATUS:\$(cat ${remote_status_file}); else latest=\$(ls -t logs/train-*.log 2>/dev/null | head -n 1); if test -n \"\${latest}\"; then total=\$(wc -l < \"\${latest}\"); echo RUNNING lines:\${total}; if test \${total} -gt ${last_log_line}; then tail -n +$((last_log_line + 1)) \"\${latest}\"; fi; else echo RUNNING; fi; fi" 2>&1
+      --command "cd ${remote_dir} && if test -f ${remote_status_file}; then echo STATUS:\$(cat ${remote_status_file}); else latest=\$(ls -t logs/train-*.log 2>/dev/null | head -n 1); if test -n \"\${latest}\"; then total=\$(wc -l < \"\${latest}\"); echo LOG_LINES:\${total}; if test \${total} -gt ${last_log_line}; then tail -n +$((last_log_line + 1)) \"\${latest}\"; fi; else true; fi; fi" 2>&1
   )"
   poll_code=$?
   set -e
 
-  echo "${poll_output}"
-  new_log_line="$(printf "%s\n" "${poll_output}" | sed -n 's/^RUNNING lines://p' | tail -n 1)"
+  printf "%s\n" "${poll_output}" | sed '/^LOG_LINES:/d'
+  new_log_line="$(printf "%s\n" "${poll_output}" | sed -n 's/^LOG_LINES://p' | tail -n 1)"
   if [ -n "${new_log_line}" ]; then
     last_log_line="${new_log_line}"
   fi

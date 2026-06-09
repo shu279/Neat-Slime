@@ -42,6 +42,7 @@ def _evaluate_genome_worker(args):
         attack_velocity_reward,
         own_side_stall_penalty,
         own_side_stall_grace_steps,
+        head_juggle_penalty,
     ) = args
     try:
         return evaluate_fitness(
@@ -62,6 +63,7 @@ def _evaluate_genome_worker(args):
             attack_velocity_reward=attack_velocity_reward,
             own_side_stall_penalty=own_side_stall_penalty,
             own_side_stall_grace_steps=own_side_stall_grace_steps,
+            head_juggle_penalty=head_juggle_penalty,
         )
     except ValueError as error:
         if "cyclic" not in str(error) and "recurrent" not in str(error):
@@ -413,6 +415,7 @@ def evaluate_population(
     attack_velocity_reward,
     own_side_stall_penalty,
     own_side_stall_grace_steps,
+    head_juggle_penalty,
     num_workers=1,
 ):
     """
@@ -438,6 +441,7 @@ def evaluate_population(
             attack_velocity_reward,
             own_side_stall_penalty,
             own_side_stall_grace_steps,
+            head_juggle_penalty,
         )
         for genome in population
     ]
@@ -464,7 +468,7 @@ def evaluate_population(
 
 def evolve(
     population_size=300,
-    generations=300,
+    generations=500,
     target_fitness=None,
     episodes_per_genome=8,
     elite_count=22,
@@ -486,12 +490,13 @@ def evolve(
     stagnation_generations=50,
     stagnation_reset_fraction=0.2,
 
-    net_camping_penalty=0.004,
-    ball_tracking_penalty=0.001,
-    cross_net_reward=0.15,
-    attack_velocity_reward=0.01,
-    own_side_stall_penalty=0.0003,
-    own_side_stall_grace_steps=120,
+    net_camping_penalty=0.004,       # Penalize standing near the net while the ball is behind us.
+    ball_tracking_penalty=0.001,     # Penalize being horizontally far from the ball on our side.
+    cross_net_reward=0.35,           # Reward when the ball moves from our side to opponent side.
+    attack_velocity_reward=0.03,     # Reward likely hits that send the ball left toward opponent.
+    own_side_stall_penalty=0.002,   # Per-step penalty after the ball stays on our side too long.
+    own_side_stall_grace_steps=40,   # Number of own-side ball steps allowed before stall penalty.
+    head_juggle_penalty=0.001,       # Penalize ball centered above us without leftward attack speed.
 
     survival_bonus_per_step=0.0, #Used to be -0.0004
     horizontal_margin=0.0,
@@ -543,6 +548,7 @@ def evolve(
         attack_velocity_reward: Reward for hitting the ball toward opponent side.
         own_side_stall_penalty: Per-step penalty after ball stays on own side too long.
         own_side_stall_grace_steps: Own-side ball steps allowed before stall penalty.
+        head_juggle_penalty:  Penalty for passive head juggling without attack velocity.
         raw_eval_interval:      Generations between true baseline score checks. None disables.
         raw_eval_episodes:      Episodes used for each true baseline score check.
         save_best_by_raw_score: If True, save by raw score instead of training fitness.
@@ -584,6 +590,7 @@ def evolve(
             attack_velocity_reward=attack_velocity_reward,
             own_side_stall_penalty=own_side_stall_penalty,
             own_side_stall_grace_steps=own_side_stall_grace_steps,
+            head_juggle_penalty=head_juggle_penalty,
             num_workers=num_workers,
         )
 
@@ -635,6 +642,7 @@ def evolve(
                             "attack_velocity_reward": attack_velocity_reward,
                             "own_side_stall_penalty": own_side_stall_penalty,
                             "own_side_stall_grace_steps": own_side_stall_grace_steps,
+                            "head_juggle_penalty": head_juggle_penalty,
                         },
                     )
             elif best_genome_path is not None:
@@ -653,6 +661,7 @@ def evolve(
                         "attack_velocity_reward": attack_velocity_reward,
                         "own_side_stall_penalty": own_side_stall_penalty,
                         "own_side_stall_grace_steps": own_side_stall_grace_steps,
+                        "head_juggle_penalty": head_juggle_penalty,
                     },
                 )
         else:
