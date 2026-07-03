@@ -7,3 +7,4 @@ results/
 outputs/
 *.mp4
 *.gif
+!saved/best_gameplay.gif
