@@ -36,21 +36,6 @@ Saved genome:
 }
 ```
 
-The gameplay capture shows the final behavior. Qualitatively, the agent is much
-better than the earlier head-juggling policy: it sends the ball across the net
-more often and behaves more like an actual volleyball player. However, raw
-evaluation shows that it is still not consistently stronger than the built-in
-baseline opponent. Over 100 evaluation episodes, the agent achieved 3 wins,
-4 draws, and 93 losses, with 44 points for and 333 points against, for a point
-win rate of about 11.7%.
-
-The main takeaway is that this NEAT system successfully evolved non-trivial
-network structures and improved behavior, but the final policy did not fully
-solve the game. Shaped fitness produced visually interesting progress, while
-also showing how easily evolution can optimize unintended behaviors. Better
-future versions would need fitness shaping more closely aligned with raw game
-score, or possibly a self-play curriculum.
-
 ## Overview
 
 The agent observes the 12-value SlimeVolley state vector and outputs three
